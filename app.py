@@ -1,12 +1,12 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for, send_file
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, flash
 from flask_mysqldb import MySQL
 from flask_cors import CORS
 import os
-from werkzeug.utils import secure_filename
 from datetime import datetime
-from utils.trainer import train_and_export_model
 import firebase_admin
 from firebase_admin import credentials, auth
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 app = Flask(__name__)
 CORS(app)
@@ -22,22 +22,17 @@ app.config['MYSQL_PASSWORD'] = os.environ.get('MYSQL_PASSWORD', '')
 app.config['MYSQL_DB'] = os.environ.get('MYSQL_DB', 'roblock_module')
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
+# Secret key for session management
+app.secret_key = 'kunci rahasia'
+
 mysql = MySQL(app)
 
-# Upload folder
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# Fungsi helper untuk query database
 def execute_query(query, args=None, fetch_one=False, commit=False):
     cur = mysql.connection.cursor()
     cur.execute(query, args)
     if commit:
         mysql.connection.commit()
-    if fetch_one:
-        result = cur.fetchone()
-    else:
-        result = cur.fetchall()
+    result = cur.fetchone() if fetch_one else cur.fetchall()
     cur.close()
     return result
 
@@ -62,9 +57,76 @@ def api_get_module_questions(module_id):
     questions = execute_query(query, (module_id,))
     return jsonify(questions)
 
-# ---------------- WEB INTERFACE MODULE DAN QUIZ ----------------
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this page.', 'danger')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# ---------------- AUTHENTICATION ROUTES ----------------
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        
+        user = execute_query("SELECT * FROM users WHERE email = %s", (email,), fetch_one=True)
+        
+        if user and check_password_hash(user['password'], password):
+            session['user_id'] = user['id']
+            session['user_name'] = user['name']
+            session['user_email'] = user['email']
+            flash('Login successful!', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid email or password', 'danger')
+    
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        password = request.form['password']
+        
+        # Cek apakah email sudah ada
+        existing_user = execute_query("SELECT * FROM users WHERE email = %s", (email,), fetch_one=True)
+        if existing_user:
+            flash('Email already registered. Please use a different email.', 'danger')
+            return redirect(url_for('register'))
+        
+        # Hash password
+        hashed_password = generate_password_hash(password)
+        
+        # Tambah user baru
+        query = "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)"
+        execute_query(query, (name, email, hashed_password), commit=True)
+        
+        flash('Registration successful! Please log in.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('register.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    session.clear()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('login'))
+
+# ---------------- PROTECTED ROUTES ----------------
 @app.route('/')
+def landing_page():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return render_template("index.html")
+
 @app.route('/dashboard')
+@login_required
 def dashboard():
     query = "SELECT COUNT(*) as total_modules FROM module_table"
     result = execute_query(query, fetch_one=True)
@@ -72,12 +134,14 @@ def dashboard():
     return render_template('dashboard.html', total_modules=total_modules)
 
 @app.route('/modules')
+@login_required
 def manage_modules():
     query = "SELECT * FROM module_table"
     modules = execute_query(query)
     return render_template('modules.html', modules=modules)
 
 @app.route('/modules/create', methods=['GET', 'POST'])
+@login_required
 def create_module():
     if request.method == 'POST':
         data = request.form
@@ -96,6 +160,7 @@ def create_module():
     return render_template('create_module.html')
 
 @app.route('/modules/<module_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_module(module_id):
     if request.method == 'POST':
         data = request.form
@@ -119,12 +184,14 @@ def edit_module(module_id):
     return render_template('edit_module.html', module=module)
 
 @app.route('/modules/<module_id>/delete', methods=['POST'])
+@login_required
 def delete_module(module_id):
     query = "DELETE FROM module_table WHERE id = %s"
     execute_query(query, (module_id,), commit=True)
     return redirect(url_for('manage_modules'))
 
 @app.route('/modules/<module_id>/questions')
+@login_required
 def manage_questions(module_id):
     module_query = "SELECT * FROM module_table WHERE id = %s"
     module = execute_query(module_query, (module_id,), fetch_one=True)
@@ -137,6 +204,7 @@ def manage_questions(module_id):
     return render_template('questions.html', module=module, questions=questions)
 
 @app.route('/modules/<module_id>/questions/create', methods=['GET', 'POST'])
+@login_required
 def create_question(module_id):
     if request.method == 'POST':
         data = request.form
@@ -157,6 +225,7 @@ def create_question(module_id):
     return render_template('create_question.html', module_id=module_id)
 
 @app.route('/questions/<question_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_question(question_id):
     if request.method == 'POST':
         data = request.form
@@ -185,6 +254,7 @@ def edit_question(question_id):
     return render_template('edit_question.html', question=question)
 
 @app.route('/questions/<question_id>/delete', methods=['POST'])
+@login_required
 def delete_question(question_id):
     module_query = "SELECT module_id FROM question_table WHERE id = %s"
     question = execute_query(module_query, (question_id,), fetch_one=True)
@@ -194,47 +264,9 @@ def delete_question(question_id):
     
     return redirect(url_for('manage_questions', module_id=question['module_id']))
 
-# ---------------- FITUR UPLOAD, TRAIN, DAN UNDUH MODEL ----------------
-@app.route('/upload', methods=['POST'])
-def upload_image():
-    label = request.form.get('label')
-    image = request.files.get('image')
-
-    if not label or not image:
-        return jsonify({'error': 'Label and image are required.'}), 400
-
-    label_folder = os.path.join(UPLOAD_FOLDER, label)
-    os.makedirs(label_folder, exist_ok=True)
-
-    filename = secure_filename(image.filename)
-    image_path = os.path.join(label_folder, filename)
-    image.save(image_path)
-
-    return jsonify({'message': f'Image saved to {image_path}'}), 200
-
-@app.route('/train', methods=['POST'])
-def train():
-    print("🔥 Train endpoint hit!")
-    try:
-        train_and_export_model()
-        return jsonify({
-            "message": "Model trained successfully.",
-            "model_path": "model/color_classifier.tflite"
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-@app.route('/download-model', methods=['GET'])
-def download_model():
-    model_path = os.path.join('model', 'color_classifier.tflite')
-    if os.path.exists(model_path):
-        return send_file(model_path, as_attachment=True)
-    else:
-        return jsonify({'error': 'Model not found'}), 404
-
+# ---------------- MISC ----------------
 @app.route("/ping", methods=["GET"])
 def ping():
-    print("📡 Received /ping")
     return "pong!"
 
 @app.route('/test', methods=['GET'])
@@ -306,4 +338,4 @@ def delete_user(uid):
         return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)
