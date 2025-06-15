@@ -1,14 +1,122 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">📊 Dashboard</h1>
-    <div class="card">
-        <div class="card-body">
-            <h5 class="card-title">Jumlah Modul</h5>
-            <p class="card-text display-4">{{ total_modules }}</p>
-            <a href="{{ url_for('manage_modules') }}" class="btn btn-primary">Kelola Modul</a>
+<style>
+    .dashboard-header {
+        background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+        padding: 2rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .dashboard-header h1 {
+        color: white;
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .stats-card .card-body {
+        padding: 1.5rem;
+    }
+
+    .stats-card .card-title {
+        color: #4a5568;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .stats-card .display-4 {
+        color: #2d3748;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+    }
+
+    .stats-card .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .stats-card .btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
+    .icon-wrapper.modules {
+        background: rgba(74, 144, 226, 0.1);
+        color: #4a90e2;
+    }
+
+    .icon-wrapper.users {
+        background: rgba(66, 153, 225, 0.1);
+        color: #4299e1;
+    }
+</style>
+
+<div class="dashboard-header">
+    <h1>📊 Dashboard</h1>
+</div>
+
+<div class="container">
+    <div class="row g-4">
+        <!-- Modules Card -->
+        <div class="col-md-6">
+            <div class="stats-card">
+                <div class="card-body">
+                    <div class="icon-wrapper modules">
+                        <i class="fas fa-book fa-lg"></i>
+                    </div>
+                    <h5 class="card-title">Total Modul</h5>
+                    <p class="display-4">{{ total_modules }}</p>
+                    <a href="{{ url_for('manage_modules') }}" class="btn btn-primary">
+                        <i class="fas fa-cog me-2"></i>Kelola Modul
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Card -->
+        <div class="col-md-6">
+            <div class="stats-card">
+                <div class="card-body">
+                    <div class="icon-wrapper users">
+                        <i class="fas fa-users fa-lg"></i>
+                    </div>
+                    <h5 class="card-title">Kelola User</h5>
+                    <p class="display-4">Firebase</p>
+                    <a href="{{ url_for('manage_users') }}" class="btn btn-primary">
+                        <i class="fas fa-user-cog me-2"></i>Kelola User
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Add Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 {% endblock %}

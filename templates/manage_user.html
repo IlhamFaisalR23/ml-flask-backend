@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+        padding: 2rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .page-header h2 {
+        color: white;
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .add-user-btn {
+        background: white;
+        color: #4a90e2;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .add-user-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .user-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .user-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        color: #4a5568;
+        padding: 1rem;
+    }
+
+    .table td {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+
+    .user-email {
+        color: #2d3748;
+        font-weight: 500;
+    }
+
+    .user-id {
+        color: #718096;
+        font-family: monospace;
+        font-size: 0.9rem;
+    }
+
+    .delete-btn {
+        background: #fff;
+        color: #e53e3e;
+        border: 1px solid #e53e3e;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .delete-btn:hover {
+        background: #e53e3e;
+        color: white;
+    }
+
+    .modal-content {
+        border-radius: 12px;
+        border: none;
+    }
+
+    .modal-header {
+        background: #4a90e2;
+        color: white;
+        border-radius: 12px 12px 0 0;
+        border: none;
+    }
+
+    .modal-title {
+        font-weight: 600;
+    }
+
+    .btn-close {
+        filter: brightness(0) invert(1);
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #4a5568;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        padding: 0.75rem;
+    }
+
+    .form-control:focus {
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    }
+
+    .modal-footer {
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .btn-primary {
+        background: #4a90e2;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+    }
+
+    .btn-primary:hover {
+        background: #357abd;
+    }
+
+    .btn-secondary {
+        background: #e2e8f0;
+        border: none;
+        color: #4a5568;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+    }
+
+    .btn-secondary:hover {
+        background: #cbd5e0;
+    }
+
+    .table-responsive {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .alert {
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+</style>
+
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2>User Management</h2>
+    <button onclick="showCreateUserModal()" class="add-user-btn">
+        <i class="fas fa-plus me-2"></i>Add New User
+    </button>
+</div>
+
+<div class="user-card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th>No</th>
+                        <th>Email</th>
+                        <th>User ID</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td class="user-email">{{ user.email }}</td>
+                        <td class="user-id">{{ user.uid }}</td>
+                        <td class="text-end">
+                            <button onclick="deleteUser('{{ user.uid }}')" class="delete-btn">
+                                <i class="fas fa-trash-alt me-1"></i>Delete
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createUserForm">
+                    <div class="mb-4">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email" name="email" required 
+                               placeholder="Enter email address">
+                    </div>
+                    <div class="mb-4">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required
+                               placeholder="Enter password">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="createUserForm" class="btn btn-primary">Create User</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script>
+    // Modal functions
+    function showCreateUserModal() {
+        new bootstrap.Modal(document.getElementById('createUserModal')).show();
+    }
+
+    // Form submissions
+    document.getElementById('createUserForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = {
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value
+        };
+
+        axios.post('/api/users', formData)
+            .then(response => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('createUserModal'));
+                modal.hide();
+                
+                // Show success message
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    User created successfully
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('.page-header').after(alert);
+                
+                // Reload after 1 second
+                setTimeout(() => location.reload(), 1000);
+            })
+            .catch(error => {
+                console.error('Error creating user:', error);
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-danger alert-dismissible fade show';
+                alert.innerHTML = `
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Error creating user: ${error.response?.data?.error || 'Unknown error'}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('.page-header').after(alert);
+            });
+    });
+
+    function deleteUser(uid) {
+        if (confirm('Are you sure you want to delete this user?')) {
+            axios.delete(`/api/users/${uid}`)
+                .then(response => {
+                    // Show success message
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-success alert-dismissible fade show';
+                    alert.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>
+                        User deleted successfully
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.querySelector('.page-header').after(alert);
+                    
+                    // Reload after 1 second
+                    setTimeout(() => location.reload(), 1000);
+                })
+                .catch(error => {
+                    console.error('Error deleting user:', error);
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-danger alert-dismissible fade show';
+                    alert.innerHTML = `
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Error deleting user: ${error.response?.data?.error || 'Unknown error'}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.querySelector('.page-header').after(alert);
+                });
+        }
+    }
+</script>
+{% endblock %} 
