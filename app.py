@@ -5,9 +5,15 @@ import os
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from utils.trainer import train_and_export_model
+import firebase_admin
+from firebase_admin import credentials, auth
 
 app = Flask(__name__)
 CORS(app)
+
+# Firebase Admin SDK initialization
+cred = credentials.Certificate('roblocks-rbc-firebase-adminsdk-fbsvc-a00ea47599.json')
+firebase_admin.initialize_app(cred)
 
 # Konfigurasi MySQL menggunakan environment variables
 app.config['MYSQL_HOST'] = os.environ.get('MYSQL_HOST', 'localhost')
@@ -234,6 +240,70 @@ def ping():
 @app.route('/test', methods=['GET'])
 def test():
     return "Server is running!"
+
+# ---------------- USER MANAGEMENT ROUTES ----------------
+@app.route('/users')
+def manage_users():
+    try:
+        # Get all users from Firebase
+        users = auth.list_users().iterate_all()
+        user_list = []
+        for user in users:
+            user_list.append({
+                'uid': user.uid,
+                'email': user.email
+            })
+        return render_template('manage_user.html', users=user_list)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    try:
+        users = auth.list_users().iterate_all()
+        user_list = []
+        for user in users:
+            user_list.append({
+                'uid': user.uid,
+                'email': user.email
+            })
+        return jsonify(user_list)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users/<uid>', methods=['GET'])
+def get_user(uid):
+    try:
+        user = auth.get_user(uid)
+        return jsonify({
+            'uid': user.uid,
+            'email': user.email
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
+
+@app.route('/api/users', methods=['POST'])
+def create_user():
+    try:
+        data = request.json
+        user = auth.create_user(
+            email=data.get('email'),
+            password=data.get('password')
+        )
+        return jsonify({
+            'uid': user.uid,
+            'email': user.email
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/users/<uid>', methods=['DELETE'])
+def delete_user(uid):
+    try:
+        auth.delete_user(uid)
+        return jsonify({'message': 'User deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)
